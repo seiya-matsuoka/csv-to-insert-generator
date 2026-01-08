@@ -1,0 +1,9 @@
+{
+  "editor.formatOnSave": true,
+  "java.saveActions.organizeImports": true,
+  "[java]": {
+    "editor.defaultFormatter": "josevseb.google-java-format-for-vs-code"
+  },
+  "java.configuration.updateBuildConfiguration": "interactive",
+  "java.import.maven.enabled": true
+}
