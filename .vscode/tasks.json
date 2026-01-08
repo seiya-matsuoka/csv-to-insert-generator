@@ -1,0 +1,38 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "backend: test",
+      "type": "shell",
+      "command": "mvn",
+      "args": ["-q", "test"],
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "backend: package",
+      "type": "shell",
+      "command": "mvn",
+      "args": ["-q", "package"],
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "backend: clean",
+      "type": "shell",
+      "command": "mvn",
+      "args": ["-q", "clean"],
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}
