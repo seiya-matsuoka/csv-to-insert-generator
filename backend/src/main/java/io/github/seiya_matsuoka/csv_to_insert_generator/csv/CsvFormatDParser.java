@@ -1,11 +1,14 @@
 package io.github.seiya_matsuoka.csv_to_insert_generator.csv;
 
+import io.github.seiya_matsuoka.csv_to_insert_generator.validation.ColumnType;
 import io.github.seiya_matsuoka.csv_to_insert_generator.validation.ErrorCollector;
 import io.github.seiya_matsuoka.csv_to_insert_generator.validation.ValidationError;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -47,6 +50,124 @@ public final class CsvFormatDParser {
   public CsvFormatDParser() {
     // 空行も行として扱いたいので ignoreEmptyLines=false にしておく
     this.csvFormat = CSVFormat.DEFAULT.builder().setIgnoreEmptyLines(false).build();
+  }
+
+  /**
+   * CSV文字列をパースする。
+   *
+   * @param csvText CSV文字列（UTF-8想定。先頭BOMは許容し除去する）
+   * @return パース結果（成功/失敗）
+   */
+  public CsvParseResult parse(String csvText) {
+    // エラーは可能な限り収集するが、上限超過時は収集を打ち切る（ErrorCollectorの方針）
+    ErrorCollector collector = new ErrorCollector();
+
+    // Windows/ExcelのCSVでは先頭にUTF-8 BOMが付与されることがあるが、BOMが残ると "#table=" 判定が失敗するのでここで除去する。
+    String normalized = BomUtil.stripUtf8Bom(csvText);
+
+    // 入力が空/空白のみの場合は、この時点でフォーマット不正として扱う（#table行/#types行/ヘッダ行が存在しないため）
+    if (normalized == null || normalized.isBlank()) {
+      collector.add(
+          new ValidationError(1, "#file", "format", "", "CSVが空です（#table行/#types行/ヘッダ行が必要です）"));
+      return CsvParseResult.failure(collector.errors(), collector.isTruncated());
+    }
+
+    // Commons CSVで全レコードを一括読み取りする（ここでは行構造の解析までが目的）
+    List<CSVRecord> records;
+    try {
+      records = readAllRecords(normalized);
+    } catch (IOException e) {
+      // StringReader由来では通常発生しないが、万一に備えてフォーマットエラーとして返す
+      collector.add(
+          new ValidationError(1, "#file", "format", "", "CSVの読み取りに失敗しました: " + e.getMessage()));
+      return CsvParseResult.failure(collector.errors(), collector.isTruncated());
+    }
+
+    // フォーマットDは最低でも3行（#table/#types/header）が必要のため検証
+    if (records.size() < 3) {
+      collector.add(
+          new ValidationError(
+              1, "#file", "format", "", "CSVの行数が不足しています（#table行/#types行/ヘッダ行が必要です）"));
+      return CsvParseResult.failure(collector.errors(), collector.isTruncated());
+    }
+
+    // --- ここからフォーマットDの各行を順に処理する ---
+    // 1行目: #table=...
+    // テーブル名が空/不正なら、この時点でエラー収集（tableNameは空文字で返す）
+    String tableName = parseTableLine(records.get(0), collector);
+    if (collector.isTruncated()) {
+      return CsvParseResult.failure(collector.errors(), true);
+    }
+
+    // 2行目: #types=...
+    // 型名を ColumnType に解決できない（未知型）場合もエラーとして収集
+    List<ColumnType> types = parseTypesLine(records.get(1), collector);
+    if (collector.isTruncated()) {
+      return CsvParseResult.failure(collector.errors(), true);
+    }
+
+    // 3行目: header
+    // 列名の形式/重複を検証しつつ取得
+    List<String> headers = parseHeaderLine(records.get(2), collector);
+    if (collector.isTruncated()) {
+      return CsvParseResult.failure(collector.errors(), true);
+    }
+
+    // types数とheader数の一致を検証
+    // 型検証/SQL生成 時には「列単位で types と headers が1:1対応している」ことが前提となるため、ここで列数不一致を検出してエラーにする。
+    if (!types.isEmpty() && !headers.isEmpty() && types.size() != headers.size()) {
+      collector.add(
+          new ValidationError(
+              fileLine(records.get(2)),
+              "#header",
+              "format",
+              "types=" + types.size() + ", headers=" + headers.size(),
+              "#typesの列数とヘッダの列数が一致していません"));
+    }
+    if (collector.isTruncated()) {
+      return CsvParseResult.failure(collector.errors(), true);
+    }
+
+    // 4行目以降: data rows
+    // 行として読み取れるか/ヘッダ列数と一致しているかを見る。
+    List<CsvRow> rows = new ArrayList<>();
+    int expectedColumns = headers.size();
+
+    for (int i = 3; i < records.size(); i++) {
+      CSVRecord r = records.get(i);
+
+      // 列数で厳密に判定する。
+      if (r.size() != expectedColumns) {
+        collector.add(
+            new ValidationError(
+                fileLine(r),
+                "#data",
+                "format",
+                joinRecord(r),
+                "データ行の列数がヘッダと一致していません（expected=" + expectedColumns + ", actual=" + r.size() + "）"));
+        if (collector.isTruncated()) {
+          break;
+        }
+        // 列数が違う行は CsvRow 化できないため、次の行へ
+        continue;
+      }
+
+      // ここでは生の文字列として保持する。クォート解除などは Commons CSV が行った値（r.get(c)）をそのまま使う。
+      List<String> values = new ArrayList<>(expectedColumns);
+      for (int c = 0; c < expectedColumns; c++) {
+        values.add(r.get(c));
+      }
+      rows.add(new CsvRow(fileLine(r), values));
+    }
+
+    // ここまででエラーが1件でもあれば失敗として返す。
+    if (collector.hasErrors()) {
+      return CsvParseResult.failure(collector.errors(), collector.isTruncated());
+    }
+
+    // 成功時は ParsedCsv として返す
+    ParsedCsv parsed = new ParsedCsv(tableName, types, headers, rows);
+    return CsvParseResult.success(parsed);
   }
 
   /**
