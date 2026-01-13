@@ -110,6 +110,137 @@ public final class CsvFormatDParser {
   }
 
   /**
+   * 2行目（#types=...）を解析し、列型の一覧を返す。
+   *
+   * <p>未知型や空の型はエラーとして収集する。
+   *
+   * @param record 2行目のCSVRecord
+   * @param collector エラー収集器
+   * @return 型一覧（エラーがあっても可能な範囲で解決した結果）
+   */
+  private List<ColumnType> parseTypesLine(CSVRecord record, ErrorCollector collector) {
+    int line = fileLine(record);
+
+    if (record.size() < 1) {
+      collector.add(new ValidationError(line, "#types", "format", "", "#types行が不正です"));
+      return List.of();
+    }
+
+    // 先頭セルは "#types=int" のように prefix + 1個目の型の構成である必要がある
+    String first = record.get(0);
+    if (!first.startsWith(TYPES_PREFIX)) {
+      collector.add(
+          new ValidationError(
+              line,
+              "#types",
+              "format",
+              first,
+              "#types行は '#types=<type1>,<type2>,...' 形式である必要があります"));
+      return List.of();
+    }
+
+    // 1セル目が "#types=int" のようになるため、1セル目から "#types=" を除去して1個目の型とし、2セル目以降を残りの型として扱う。
+    String firstTypeRaw = first.substring(TYPES_PREFIX.length());
+
+    List<String> typeStrings = new ArrayList<>();
+    typeStrings.add(firstTypeRaw);
+    for (int i = 1; i < record.size(); i++) {
+      typeStrings.add(record.get(i));
+    }
+
+    // 文字列型名 から ColumnType へ解決する（未知型はエラー）
+    List<ColumnType> types = new ArrayList<>();
+    for (String raw : typeStrings) {
+      String s = raw == null ? "" : raw.trim();
+
+      // 型指定が空なのはフォーマット不正（列の対応関係が作れないため）
+      if (s.isEmpty()) {
+        collector.add(
+            new ValidationError(line, "#types", "format", raw == null ? "" : raw, "型が空です"));
+        if (collector.isTruncated()) {
+          break;
+        }
+        continue;
+      }
+
+      // fromId は Optional を返すため、未知型を明示的にエラーとして扱える
+      ColumnType.fromId(s)
+          .ifPresentOrElse(
+              types::add,
+              () ->
+                  collector.add(
+                      new ValidationError(
+                          line,
+                          "#types",
+                          "format",
+                          s,
+                          "未知の型です（許可している型: text/int/decimal/bool/date/timestamp/uuid）")));
+
+      if (collector.isTruncated()) {
+        break;
+      }
+    }
+
+    return types;
+  }
+
+  /**
+   * 3行目（ヘッダ行）を解析し、列名一覧を返す。
+   *
+   * <p>列名の形式チェック・重複チェックを行い、問題があればエラーとして収集する。
+   *
+   * @param record 3行目のCSVRecord
+   * @param collector エラー収集器
+   * @return 列名一覧
+   */
+  private List<String> parseHeaderLine(CSVRecord record, ErrorCollector collector) {
+    int line = fileLine(record);
+
+    if (record.size() < 1) {
+      collector.add(new ValidationError(line, "#header", "format", "", "ヘッダ行が空です"));
+      return List.of();
+    }
+
+    List<String> headers = new ArrayList<>(record.size());
+    Set<String> seen = new HashSet<>();
+
+    for (int i = 0; i < record.size(); i++) {
+      String col = record.get(i);
+
+      // 空列名は列の対応関係が崩れるため、エラー
+      if (col == null || col.isEmpty()) {
+        collector.add(
+            new ValidationError(line, "#header", "format", "", "列名が空です（列" + (i + 1) + "）"));
+        if (collector.isTruncated()) {
+          break;
+        }
+        headers.add("");
+        continue;
+      }
+
+      // SQL生成を安全に行うため、識別子として妥当かもチェックする
+      if (!IDENTIFIER_PATTERN.matcher(col).matches()) {
+        collector.add(new ValidationError(line, col, "format", col, "列名が不正です（英数字と_のみ、先頭は英字または_）"));
+        if (collector.isTruncated()) {
+          break;
+        }
+      }
+
+      // 重複列名はSQL生成時の列対応が曖昧になるためエラーとする
+      if (!seen.add(col)) {
+        collector.add(new ValidationError(line, col, "format", col, "列名が重複しています"));
+        if (collector.isTruncated()) {
+          break;
+        }
+      }
+
+      headers.add(col);
+    }
+
+    return headers;
+  }
+
+  /**
    * CSVRecord から「ファイル先頭からの行番号（1始まり）」を取得する。
    *
    * @param record CSVRecord
