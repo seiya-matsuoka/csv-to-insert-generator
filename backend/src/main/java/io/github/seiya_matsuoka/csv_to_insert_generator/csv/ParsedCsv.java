@@ -1,6 +1,6 @@
 package io.github.seiya_matsuoka.csv_to_insert_generator.csv;
 
-import io.github.seiya_matsuoka.csv_to_insert_generator.validation.ColumnType;
+import io.github.seiya_matsuoka.csv_to_insert_generator.domain.ColumnType;
 import java.util.List;
 import java.util.Objects;
 

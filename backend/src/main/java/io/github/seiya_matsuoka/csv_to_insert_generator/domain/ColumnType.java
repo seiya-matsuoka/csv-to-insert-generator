@@ -1,4 +1,4 @@
-package io.github.seiya_matsuoka.csv_to_insert_generator.validation;
+package io.github.seiya_matsuoka.csv_to_insert_generator.domain;
 
 import java.util.Locale;
 import java.util.Objects;
