@@ -1,9 +1,13 @@
 package io.github.seiya_matsuoka.csv_to_insert_generator.tokenize;
 
+import io.github.seiya_matsuoka.csv_to_insert_generator.csv.CsvRow;
+import io.github.seiya_matsuoka.csv_to_insert_generator.csv.ParsedCsv;
 import io.github.seiya_matsuoka.csv_to_insert_generator.domain.ColumnType;
 import io.github.seiya_matsuoka.csv_to_insert_generator.domain.ValueToken;
 import io.github.seiya_matsuoka.csv_to_insert_generator.validation.ErrorCollector;
 import io.github.seiya_matsuoka.csv_to_insert_generator.validation.ValidationError;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -25,6 +29,80 @@ public final class ValueTokenizer {
 
   /** DEFAULTキーワード。 */
   private static final String DEFAULT_KEYWORD = "DEFAULT";
+
+  /**
+   * 値をトークン化する。
+   *
+   * @param parsed CSVパース結果
+   * @return トークン化結果（成功/失敗）
+   * @throws NullPointerException parsedがnullの場合
+   * @throws IllegalArgumentException types数とheaders数が一致しない場合（想定外の入力）
+   */
+  public ValueTokenizationResult tokenize(ParsedCsv parsed) {
+    Objects.requireNonNull(parsed, "parsed is required");
+
+    // CSVパース工程で types数とheader数は一致している想定だが、
+    // 想定外の入力が流入した場合、以降の工程でバグの原因になるためチェックする。
+    if (parsed.types().size() != parsed.headers().size()) {
+      throw new IllegalArgumentException(
+          "#typesの列数とヘッダの列数が一致していません: types="
+              + parsed.types().size()
+              + ", headers="
+              + parsed.headers().size());
+    }
+
+    // 上限（ErrorCollector）を超えるまでエラーはできるだけ集める。
+    ErrorCollector collector = new ErrorCollector();
+
+    List<TokenizedRow> tokenizedRows = new ArrayList<>();
+    int columnCount = parsed.headers().size(); // 以後、各行でこの列数を前提にループする
+
+    // 4行目以降のデータ行を順に処理する
+    for (CsvRow row : parsed.rows()) {
+      // 1データ行分のセル値を順に解釈して ValueToken に変換する
+      List<ValueToken> tokens = new ArrayList<>(columnCount);
+
+      for (int i = 0; i < columnCount; i++) {
+        // エラー表示のために、列名（header）と型（types）を同じインデックスで参照する
+        String columnName = parsed.headers().get(i);
+        ColumnType type = parsed.types().get(i);
+
+        // CSVの生値（Commons CSVがクォート解除などした後の文字列）を取得する
+        String raw = row.valueAt(i);
+
+        // セル値の内容を解釈してトークン化する（NULL/DEFAULT/空文字/RAW）
+        ValueToken token = interpretCell(raw, type, row.fileLine(), columnName, collector);
+
+        // エラーが発生してもできるだけエラーを集めるため、処理は継続する。
+        // ただし、上限超過（truncated）になったら、それ以上は追加せず早期終了する。
+        tokens.add(token);
+
+        if (collector.isTruncated()) {
+          break;
+        }
+      }
+
+      // 1行分のトークン化した結果を保存する（エラーがあった場合も、エラー収集のためにここまでは作成する）
+      tokenizedRows.add(new TokenizedRow(row.fileLine(), tokens));
+
+      if (collector.isTruncated()) {
+        break;
+      }
+    }
+
+    // 失敗時：エラーが1件でもあれば失敗として返す（TokenizedCsvは返さない）
+    // 成功時のみ TokenizedCsv を返すことで、後工程は成功前提で組みやすくする。
+    if (collector.hasErrors()) {
+      return ValueTokenizationResult.failure(collector.errors(), collector.isTruncated());
+    }
+
+    // 成功時：ParsedCsvのメタ情報（tableName/types/headers）を引き継ぎ、
+    // rowsだけ TokenizedRow に差し替えた TokenizedCsv を返す。
+    TokenizedCsv tokenized =
+        new TokenizedCsv(parsed.tableName(), parsed.types(), parsed.headers(), tokenizedRows);
+
+    return ValueTokenizationResult.success(tokenized);
+  }
 
   /**
    * 1セル分の値を解釈してトークン化する。
