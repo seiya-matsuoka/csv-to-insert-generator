@@ -17,11 +17,18 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** {@link Router} のテスト。 */
+/**
+ * {@link Router} のテスト。
+ *
+ * <p>ここでは HttpServer を実際に起動せず、Router#handle に対して HttpExchange のスタブ（FakeHttpExchange）を渡して振る舞いを確認する。
+ */
 public class RouterTest {
 
+  // OPTIONS（プリフライト）はルート登録なしでも 204 を返すことを確認
+  // Origin が許可されている場合、CORSヘッダ（Allow-Origin）が付与されることを確認
   @Test
   void shouldReturnNoContent_whenOptionsRequestIsGiven() throws Exception {
+
     CorsPolicy cors = CorsPolicy.fromCommaSeparated("http://localhost:5173", List.of());
     Router router = new Router(cors);
 
@@ -35,8 +42,10 @@ public class RouterTest {
         "http://localhost:5173", ex.getResponseHeaders().getFirst("Access-Control-Allow-Origin"));
   }
 
+  // ルート登録がないパスに対して 404 を返すことを確認
   @Test
   void shouldReturnNotFound_whenNoRouteMatches() throws Exception {
+
     CorsPolicy cors = CorsPolicy.fromCommaSeparated("http://localhost:5173", List.of());
     Router router = new Router(cors);
 
@@ -48,8 +57,10 @@ public class RouterTest {
     assertTrue(new String(ex.responseBodyBytes(), StandardCharsets.UTF_8).contains("Not Found"));
   }
 
+  // method + path が一致する場合、登録したハンドラが呼ばれることを確認
   @Test
   void shouldInvokeHandler_whenRouteMatches() throws Exception {
+
     CorsPolicy cors = CorsPolicy.fromCommaSeparated("http://localhost:5173", List.of());
     Router router = new Router(cors);
 
@@ -63,7 +74,21 @@ public class RouterTest {
     assertEquals("pong", new String(ex.responseBodyBytes(), StandardCharsets.UTF_8));
   }
 
-  /** Routerテスト用の簡易HttpExchangeスタブ。 */
+  /**
+   * Routerテスト用の簡易 HttpExchange スタブ。
+   *
+   * <p>Router が参照するのは主に:
+   *
+   * <ul>
+   *   <li>getRequestHeaders（Origin 等）
+   *   <li>getResponseHeaders（CORSヘッダ付与を確認）
+   *   <li>getRequestMethod
+   *   <li>getRequestURI（path判定）
+   *   <li>sendResponseHeaders / getResponseBody（結果確認）
+   * </ul>
+   *
+   * <p>それ以外は今回のテストでは使わないため、null/ダミーで実装する。
+   */
   private static final class FakeHttpExchange extends HttpExchange {
 
     private final Headers requestHeaders = new Headers();
@@ -125,6 +150,7 @@ public class RouterTest {
 
     @Override
     public void sendResponseHeaders(int rCode, long responseLength) {
+      // 実際の HttpServer はここでレスポンスの開始を確定するが、テストではステータスコードが分かれば十分なので保持するだけにする
       this.statusCode = rCode;
     }
 
@@ -165,11 +191,13 @@ public class RouterTest {
 
     @Override
     public HttpContext getHttpContext() {
+      // RouterテストではContextを使わないため null
       return null;
     }
 
     @Override
     public HttpPrincipal getPrincipal() {
+      // 認証は扱っていないため null
       return null;
     }
   }
