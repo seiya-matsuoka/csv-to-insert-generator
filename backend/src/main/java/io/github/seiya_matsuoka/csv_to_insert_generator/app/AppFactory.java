@@ -1,5 +1,6 @@
 package io.github.seiya_matsuoka.csv_to_insert_generator.app;
 
+import io.github.seiya_matsuoka.csv_to_insert_generator.app.handler.HealthzHandler;
 import io.github.seiya_matsuoka.csv_to_insert_generator.usecase.ConvertUseCase;
 import java.util.List;
 
@@ -37,7 +38,12 @@ public final class AppFactory {
    * @return Router
    */
   public Router buildRouter(CorsPolicy corsPolicy) {
-    return new Router(corsPolicy);
+    Router router = new Router(corsPolicy);
+
+    // /healthz を登録。監視/疎通確認用。curlやブラウザから叩けるよう GET で提供する。
+    router.register("GET", "/healthz", new HealthzHandler());
+
+    return router;
   }
 
   /**
