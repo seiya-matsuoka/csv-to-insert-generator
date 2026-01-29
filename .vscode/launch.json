@@ -7,6 +7,17 @@
       "request": "attach",
       "hostName": "localhost",
       "port": 5005
+    },
+    {
+      "type": "java",
+      "name": "Launch Backend (Main)",
+      "request": "launch",
+      "mainClass": "io.github.seiya_matsuoka.csv_to_insert_generator.app.Main",
+      "projectName": "csv-to-insert-generator",
+      "args": [],
+      "env": {
+        "PORT": "8080"
+      }
     }
   ]
 }
