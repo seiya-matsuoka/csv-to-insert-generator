@@ -74,6 +74,22 @@ public class RouterTest {
     assertEquals("pong", new String(ex.responseBodyBytes(), StandardCharsets.UTF_8));
   }
 
+  // /healthz が 200 を返し、ボディが "ok" であることを確認（JSON化しない方針）
+  @Test
+  void shouldReturnOk_whenHealthzIsRequested() throws Exception {
+
+    AppFactory factory = new AppFactory();
+    CorsPolicy cors = factory.buildCorsPolicy("http://localhost:5173");
+    Router router = factory.buildRouter(cors);
+
+    FakeHttpExchange ex = new FakeHttpExchange("GET", "http://localhost:8080/healthz");
+
+    router.handle(ex);
+
+    assertEquals(200, ex.statusCode());
+    assertEquals("ok", new String(ex.responseBodyBytes(), StandardCharsets.UTF_8));
+  }
+
   /**
    * Routerテスト用の簡易 HttpExchange スタブ。
    *
