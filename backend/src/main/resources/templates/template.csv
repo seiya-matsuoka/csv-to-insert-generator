@@ -1,0 +1,3 @@
+#table=users
+#types=int,text,bool,date,timestamp,uuid
+id,name,is_active,birthday,created_at,user_uuid
