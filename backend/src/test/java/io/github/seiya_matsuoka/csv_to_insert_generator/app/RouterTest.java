@@ -90,6 +90,70 @@ public class RouterTest {
     assertEquals("ok", new String(ex.responseBodyBytes(), StandardCharsets.UTF_8));
   }
 
+  // /template.csv が 200 で返り、CSVヘッダ（#table=...）を含むことを確認
+  @Test
+  void shouldReturnTemplateCsv_whenTemplateIsRequested() throws Exception {
+
+    AppFactory factory = new AppFactory();
+    Router router = factory.buildRouter(factory.buildCorsPolicy("http://localhost:5173"));
+
+    FakeHttpExchange ex = new FakeHttpExchange("GET", "http://localhost:8080/template.csv");
+
+    router.handle(ex);
+
+    assertEquals(200, ex.statusCode());
+    assertEquals("text/csv; charset=utf-8", ex.getResponseHeaders().getFirst("Content-Type"));
+    assertEquals(
+        "attachment; filename=\"template.csv\"",
+        ex.getResponseHeaders().getFirst("Content-Disposition"));
+
+    String body = new String(ex.responseBodyBytes(), StandardCharsets.UTF_8);
+    assertTrue(body.contains("#table=users"));
+    assertTrue(body.contains("#types=") || body.contains("#types"));
+  }
+
+  // /sample1.csv が 200 で返り、データ行を含むことを確認
+  @Test
+  void shouldReturnSample1Csv_whenSample1IsRequested() throws Exception {
+
+    AppFactory factory = new AppFactory();
+    Router router = factory.buildRouter(factory.buildCorsPolicy("http://localhost:5173"));
+
+    FakeHttpExchange ex = new FakeHttpExchange("GET", "http://localhost:8080/sample1.csv");
+
+    router.handle(ex);
+
+    assertEquals(200, ex.statusCode());
+    assertEquals(
+        "attachment; filename=\"sample_1.csv\"",
+        ex.getResponseHeaders().getFirst("Content-Disposition"));
+
+    String body = new String(ex.responseBodyBytes(), StandardCharsets.UTF_8);
+    assertTrue(body.contains("1,Alice,true"));
+  }
+
+  // /sample2.csv が 200 で返り、NULL/DEFAULT/空文字の例を含むことを確認
+  @Test
+  void shouldReturnSample2Csv_whenSample2IsRequested() throws Exception {
+
+    AppFactory factory = new AppFactory();
+    Router router = factory.buildRouter(factory.buildCorsPolicy("http://localhost:5173"));
+
+    FakeHttpExchange ex = new FakeHttpExchange("GET", "http://localhost:8080/sample2.csv");
+
+    router.handle(ex);
+
+    assertEquals(200, ex.statusCode());
+    assertEquals(
+        "attachment; filename=\"sample_2.csv\"",
+        ex.getResponseHeaders().getFirst("Content-Disposition"));
+
+    String body = new String(ex.responseBodyBytes(), StandardCharsets.UTF_8);
+    assertTrue(body.contains("NULL") || body.contains(",NULL,"));
+    assertTrue(body.contains("DEFAULT") || body.contains(",DEFAULT,"));
+    assertTrue(body.contains("\"\""));
+  }
+
   /**
    * Routerテスト用の簡易 HttpExchange スタブ。
    *
