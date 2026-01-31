@@ -12,15 +12,27 @@ import java.util.Objects;
 /**
  * method + path でハンドラを切り替える簡易ルータ。
  *
+ * <p>FW無しのため、最低限のルーティングを自前で用意する。
+ *
+ * <p>ルータは「ルーティング」と「HTTP共通処理」を担当し、ビジネスロジックは handler/usecase に寄せる。
+ *
+ * <p>共通機能:
+ *
  * <ul>
  *   <li>CORSヘッダ付与（許可Originのみ）
- *   <li>OPTIONS（プリフライト）への応答（204）
+ *   <li>OPTIONS（プリフライト）への共通応答（204）
  *   <li>ハンドラ例外の一括500化
  * </ul>
  */
 public final class Router implements HttpHandler {
 
   private final CorsPolicy corsPolicy;
+
+  /**
+   * ルートテーブル。
+   *
+   * <p>キーは "METHOD /path" の形式（例: "GET /healthz"）。 method は大文字、path は末尾スラッシュ揺れを吸収した正規形で扱う。
+   */
   private final Map<String, RouteHandler> routes = new HashMap<>();
 
   /**
@@ -34,6 +46,8 @@ public final class Router implements HttpHandler {
 
   /**
    * ルートを登録する。
+   *
+   * <p>例: register("GET", "/healthz", handler)
    *
    * @param method HTTPメソッド（GET/POSTなど）
    * @param path パス（例: /healthz）
@@ -50,44 +64,65 @@ public final class Router implements HttpHandler {
 
   @Override
   public void handle(HttpExchange exchange) throws IOException {
-    // すべてのレスポンスに対して、Originが許可されていればCORSヘッダを付ける
+    // CORSヘッダの付与。Origin が許可されている場合のみ、レスポンスに必要なヘッダを付ける
     corsPolicy.apply(exchange.getRequestHeaders(), exchange.getResponseHeaders());
 
+    // メソッド/パスの正規化
     String method = normalizeMethod(exchange.getRequestMethod());
 
-    // プリフライト（OPTIONS）は全パス共通で204を返す（ルーティング不要）
+    // ブラウザのCORS仕様上、POST/JSON等ではプリフライトが飛ぶ可能性があるため、
+    // ルート登録が無くても プリフライト（OPTIONS）は全パス共通で204 を返せるようにする。
     if (corsPolicy.isOptions(method)) {
       HttpResponses.sendNoContent(exchange, 204);
       return;
     }
 
     String path = normalizePath(exchange.getRequestURI());
+
+    // ルーティング（METHOD + PATH）
     RouteHandler handler = routes.get(routeKey(method, path));
 
     if (handler == null) {
+      // まだ登録していないパスは 404 を返す
       HttpResponses.sendText(exchange, 404, "Not Found");
       return;
     }
 
+    // ハンドラ実行（例外はここで一括処理）
     try {
       handler.handle(exchange);
     } catch (Exception e) {
-      // 想定外例外はここでまとめて500に落とす
+      // 想定外例外はここでまとめてシンプルに 500 として返す。
       HttpResponses.sendText(exchange, 500, "Internal Server Error");
     }
   }
 
-  /** method + path をキーにする。 */
+  /**
+   * method + path をキーにする。
+   *
+   * @param method HTTPメソッド
+   * @param path パス
+   * @return ルートキー
+   */
   private String routeKey(String method, String path) {
     return normalizeMethod(method) + " " + normalizePath(URI.create(path));
   }
 
-  /** HTTPメソッドを正規化する。 */
+  /** HTTPメソッドを正規化する（null/空対策 + 大文字化）。 */
   private String normalizeMethod(String method) {
     return (method == null ? "" : method.trim().toUpperCase(Locale.ROOT));
   }
 
-  /** URIからパスを正規化する（末尾スラッシュ揺れを吸収）。 */
+  /**
+   * URIからパスを正規化する（末尾スラッシュ揺れを吸収）。
+   *
+   * <p>例:
+   *
+   * <ul>
+   *   <li>"/healthz/" -> "/healthz"
+   *   <li>"/" -> "/"（そのまま）
+   * </ul>
+   */
   private String normalizePath(URI uri) {
     String p = uri == null ? "/" : uri.getPath();
     if (p == null || p.isBlank()) {
