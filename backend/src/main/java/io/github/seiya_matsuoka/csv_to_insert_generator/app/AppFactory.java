@@ -1,5 +1,6 @@
 package io.github.seiya_matsuoka.csv_to_insert_generator.app;
 
+import io.github.seiya_matsuoka.csv_to_insert_generator.app.handler.CsvDownloadHandler;
 import io.github.seiya_matsuoka.csv_to_insert_generator.app.handler.HealthzHandler;
 import io.github.seiya_matsuoka.csv_to_insert_generator.usecase.ConvertUseCase;
 import java.util.List;
@@ -42,6 +43,18 @@ public final class AppFactory {
 
     // /healthz を登録。監視/疎通確認用。curlやブラウザから叩けるよう GET で提供する。
     router.register("GET", "/healthz", new HealthzHandler());
+
+    // テンプレ（規定フォーマット）
+    router.register(
+        "GET", "/template.csv", new CsvDownloadHandler("templates/template.csv", "template.csv"));
+
+    // サンプル①（小さめ）
+    router.register(
+        "GET", "/sample1.csv", new CsvDownloadHandler("samples/sample_1.csv", "sample_1.csv"));
+
+    // サンプル②（規模あり）
+    router.register(
+        "GET", "/sample2.csv", new CsvDownloadHandler("samples/sample_2.csv", "sample_2.csv"));
 
     return router;
   }
