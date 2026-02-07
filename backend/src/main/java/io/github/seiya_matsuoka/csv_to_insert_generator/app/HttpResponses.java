@@ -66,4 +66,42 @@ public final class HttpResponses {
     exchange.sendResponseHeaders(status, -1);
     exchange.close();
   }
+
+  /**
+   * JSONレスポンスを返す（UTF-8）。
+   *
+   * @param exchange HttpExchange
+   * @param statusCode HTTPステータス
+   * @param jsonBytes JSON bytes（UTF-8）
+   * @throws IOException I/O例外
+   */
+  public static void sendJson(HttpExchange exchange, int statusCode, byte[] jsonBytes)
+      throws IOException {
+    Objects.requireNonNull(exchange, "exchange is required");
+    Objects.requireNonNull(jsonBytes, "jsonBytes is required");
+
+    Headers headers = exchange.getResponseHeaders();
+    headers.set("Content-Type", "application/json; charset=utf-8");
+    headers.set("X-Content-Type-Options", "nosniff");
+    headers.set("Cache-Control", "no-store");
+
+    exchange.sendResponseHeaders(statusCode, jsonBytes.length);
+    try (OutputStream os = exchange.getResponseBody()) {
+      os.write(jsonBytes);
+    }
+  }
+
+  /**
+   * JSONレスポンスを返す（文字列→UTF-8変換）。
+   *
+   * @param exchange HttpExchange
+   * @param statusCode HTTPステータス
+   * @param json JSON文字列
+   * @throws IOException I/O例外
+   */
+  public static void sendJson(HttpExchange exchange, int statusCode, String json)
+      throws IOException {
+    Objects.requireNonNull(json, "json is required");
+    sendJson(exchange, statusCode, json.getBytes(StandardCharsets.UTF_8));
+  }
 }
