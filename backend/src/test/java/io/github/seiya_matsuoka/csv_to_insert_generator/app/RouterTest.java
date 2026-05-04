@@ -154,6 +154,27 @@ public class RouterTest {
     assertTrue(body.contains("\"\""));
   }
 
+  // /convert に POST したが multipart/form-data ではない場合、400（JSON）を返すことを確認
+  @Test
+  void shouldReturnBadRequest_whenConvertIsRequestedWithoutMultipart() throws Exception {
+
+    AppFactory factory = new AppFactory();
+    Router router = factory.buildRouter(factory.buildCorsPolicy("http://localhost:5173"));
+
+    // Content-Type を付けない（= multipart 判定で弾かれる想定）
+    FakeHttpExchange ex = new FakeHttpExchange("POST", "http://localhost:8080/convert");
+
+    router.handle(ex);
+
+    assertEquals(400, ex.statusCode());
+
+    String contentType = ex.getResponseHeaders().getFirst("Content-Type");
+    assertTrue(contentType != null && contentType.startsWith("application/json"));
+
+    String body = new String(ex.responseBodyBytes(), StandardCharsets.UTF_8);
+    assertTrue(body.contains("\"ok\":false"));
+  }
+
   /**
    * Routerテスト用の簡易 HttpExchange スタブ。
    *

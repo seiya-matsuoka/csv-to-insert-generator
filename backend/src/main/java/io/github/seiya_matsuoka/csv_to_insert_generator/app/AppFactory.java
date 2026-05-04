@@ -1,7 +1,10 @@
 package io.github.seiya_matsuoka.csv_to_insert_generator.app;
 
+import io.github.seiya_matsuoka.csv_to_insert_generator.api.json.ObjectMapperFactory;
+import io.github.seiya_matsuoka.csv_to_insert_generator.app.handler.ConvertHandler;
 import io.github.seiya_matsuoka.csv_to_insert_generator.app.handler.CsvDownloadHandler;
 import io.github.seiya_matsuoka.csv_to_insert_generator.app.handler.HealthzHandler;
+import io.github.seiya_matsuoka.csv_to_insert_generator.app.multipart.MultipartCsvExtractor;
 import io.github.seiya_matsuoka.csv_to_insert_generator.usecase.ConvertUseCase;
 import java.util.List;
 
@@ -55,6 +58,13 @@ public final class AppFactory {
     // サンプル②（規模あり）
     router.register(
         "GET", "/sample2.csv", new CsvDownloadHandler("samples/sample_2.csv", "sample_2.csv"));
+
+    // /convert（CSV -> SQL 変換）
+    router.register(
+        "POST",
+        "/convert",
+        new ConvertHandler(
+            buildConvertUseCase(), new MultipartCsvExtractor(), ObjectMapperFactory.create()));
 
     return router;
   }
