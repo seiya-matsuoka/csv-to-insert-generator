@@ -22,11 +22,11 @@ export function ConvertForm({
   onSubmit,
 }: ConvertFormProps) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div>
       <div>
-        <h2 className="text-xl font-bold text-slate-950">変換入力</h2>
+        <h3 className="text-lg font-bold text-slate-950">変換入力</h3>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          テーブル名とCSVファイルを指定して、INSERT SQLへ変換する。
+          テーブル名とCSVファイルを指定する。
         </p>
       </div>
 
@@ -47,8 +47,7 @@ export function ConvertForm({
             className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-100"
           />
           <p className="mt-2 text-xs leading-5 text-slate-500">
-            例: users / orders /
-            book_logs。backend側ではこの値をtableフィールドとして送信する。
+            例: users / orders / book_logs
           </p>
         </div>
 
@@ -98,6 +97,6 @@ export function ConvertForm({
           {isConverting ? "変換中..." : "SQLを生成する"}
         </button>
       </form>
-    </section>
+    </div>
   );
 }

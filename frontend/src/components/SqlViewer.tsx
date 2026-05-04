@@ -49,10 +49,10 @@ export function SqlViewer({ result }: SqlViewerProps) {
   }
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div>
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-950">生成SQL</h2>
+          <h3 className="text-lg font-bold text-slate-950">生成SQL</h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             生成されたSQLは、そのままコピーまたは.sqlファイルとして保存できる。
           </p>
@@ -95,8 +95,8 @@ export function SqlViewer({ result }: SqlViewerProps) {
       <textarea
         readOnly
         value={result.sql}
-        className="mt-4 h-130 w-full resize-y rounded-xl border border-slate-200 bg-slate-950 p-4 font-mono text-sm leading-6 text-slate-100 outline-none"
+        className="mt-4 h-140 w-full resize-y rounded-xl border border-slate-200 bg-slate-950 p-4 font-mono text-sm leading-6 text-slate-100 outline-none"
       />
-    </section>
+    </div>
   );
 }

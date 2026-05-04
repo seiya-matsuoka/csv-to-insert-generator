@@ -7,10 +7,9 @@ import {
   useState,
 } from "react";
 import { AppHeader } from "./components/AppHeader";
-import { ConvertForm } from "./components/ConvertForm";
+import { ConverterPanel } from "./components/ConverterPanel";
 import { CsvDownloadPanel } from "./components/CsvDownloadPanel";
 import { HealthCheckPanel } from "./components/HealthCheckPanel";
-import { ResultPanel } from "./components/ResultPanel";
 import { convertCsv, getApiBaseUrl, healthz } from "./lib/api";
 import type { ConvertResponse } from "./types/convert";
 import type { FormMessage, HealthCheckState } from "./types/ui";
@@ -221,34 +220,29 @@ function App() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900">
+    <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900 sm:py-8">
       <div className="mx-auto max-w-6xl">
         <AppHeader apiBaseUrl={apiBaseUrl} />
 
-        <div className="mt-6">
+        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_420px]">
           <HealthCheckPanel
             healthCheck={healthCheck}
             onCheck={() => void runHealthCheck()}
           />
+          <CsvDownloadPanel />
         </div>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[420px_1fr]">
-          <div className="space-y-6">
-            <CsvDownloadPanel />
-            <ConvertForm
-              tableName={tableName}
-              selectedFile={selectedFile}
-              isConverting={isConverting}
-              message={message}
-              onTableNameChange={setTableName}
-              onFileChange={handleFileChange}
-              onSubmit={handleSubmit}
-            />
-          </div>
-
-          <ResultPanel
+        <div className="mt-6">
+          <ConverterPanel
+            tableName={tableName}
+            selectedFile={selectedFile}
+            isConverting={isConverting}
+            message={message}
             successResult={successResult}
             failureResult={failureResult}
+            onTableNameChange={setTableName}
+            onFileChange={handleFileChange}
+            onSubmit={handleSubmit}
           />
         </div>
       </div>

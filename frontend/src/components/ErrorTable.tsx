@@ -6,16 +6,14 @@ type ErrorTableProps = {
 
 export function ErrorTable({ result }: ErrorTableProps) {
   return (
-    <section className="rounded-2xl border border-red-200 bg-white p-6 shadow-sm">
-      <div>
-        <h2 className="text-xl font-bold text-red-700">変換エラー</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          CSVの内容を修正して、再度変換する。
-          {result.truncated
-            ? ` エラーは最大${result.maxErrors}件で打ち切られている。`
-            : ""}
-        </p>
-      </div>
+    <div>
+      <h3 className="text-lg font-bold text-red-700">変換エラー</h3>
+      <p className="mt-2 text-sm leading-6 text-slate-600">
+        CSVの内容を修正して、再度変換する。
+        {result.truncated
+          ? ` エラーは最大${result.maxErrors}件で打ち切られている。`
+          : ""}
+      </p>
 
       <div className="mt-5 overflow-hidden rounded-xl border border-slate-200">
         <div className="overflow-x-auto">
@@ -65,6 +63,6 @@ export function ErrorTable({ result }: ErrorTableProps) {
           </table>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
