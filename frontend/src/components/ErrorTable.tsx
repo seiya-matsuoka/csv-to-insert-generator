@@ -8,7 +8,7 @@ export function ErrorTable({ result }: ErrorTableProps) {
   return (
     <div>
       <h3 className="text-lg font-bold text-red-700">変換エラー</h3>
-      <p className="mt-2 text-sm leading-6 text-slate-600">
+      <p className="mt-1 text-sm leading-6 text-slate-600">
         CSVの内容を修正して、再度変換する。
         {result.truncated
           ? ` エラーは最大${result.maxErrors}件で打ち切られている。`

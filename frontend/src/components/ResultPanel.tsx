@@ -25,11 +25,11 @@ export function ResultPanel({
   return (
     <div>
       <h3 className="text-lg font-bold text-slate-950">変換結果</h3>
-      <p className="mt-2 text-sm leading-6 text-slate-600">
+      <p className="mt-1 text-sm leading-6 text-slate-600">
         変換を実行すると、ここに生成SQLまたはエラー一覧を表示する。
       </p>
 
-      <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
+      <div className="mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center text-sm text-slate-500">
         まだ変換結果はありません。
       </div>
     </div>

@@ -3,21 +3,18 @@ import {
   type FormEvent,
   useCallback,
   useEffect,
-  useMemo,
   useState,
 } from "react";
 import { AppHeader } from "./components/AppHeader";
 import { ConverterPanel } from "./components/ConverterPanel";
 import { CsvDownloadPanel } from "./components/CsvDownloadPanel";
 import { HealthCheckPanel } from "./components/HealthCheckPanel";
-import { convertCsv, getApiBaseUrl, healthz } from "./lib/api";
+import { convertCsv, healthz } from "./lib/api";
 import type { ConvertResponse } from "./types/convert";
 import type { FormMessage, HealthCheckState } from "./types/ui";
 import { formatDateTime } from "./utils/format";
 
 function App() {
-  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
-
   const [tableName, setTableName] = useState("users");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [result, setResult] = useState<ConvertResponse | null>(null);
@@ -222,14 +219,19 @@ function App() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900 sm:py-8">
       <div className="mx-auto max-w-6xl">
-        <AppHeader apiBaseUrl={apiBaseUrl} />
+        <AppHeader />
 
-        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_420px]">
-          <HealthCheckPanel
-            healthCheck={healthCheck}
-            onCheck={() => void runHealthCheck()}
-          />
-          <CsvDownloadPanel />
+        <div className="mt-4 flex flex-col gap-4 lg:flex-row">
+          <div className="lg:flex-7">
+            <CsvDownloadPanel />
+          </div>
+
+          <div className="lg:flex-3">
+            <HealthCheckPanel
+              healthCheck={healthCheck}
+              onCheck={() => void runHealthCheck()}
+            />
+          </div>
         </div>
 
         <div className="mt-6">

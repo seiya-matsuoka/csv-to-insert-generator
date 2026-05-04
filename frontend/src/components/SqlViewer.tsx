@@ -52,15 +52,15 @@ export function SqlViewer({ result }: SqlViewerProps) {
     <div>
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <h3 className="text-lg font-bold text-slate-950">生成SQL</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            生成されたSQLは、そのままコピーまたは.sqlファイルとして保存できる。
+          <h3 className="text-lg font-bold text-slate-950">生成結果</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            生成されたSQLを確認し、コピーまたは.sqlファイルとして保存できる。
           </p>
         </div>
 
-        <div className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+        <span className="inline-flex w-fit rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
           生成成功
-        </div>
+        </span>
       </div>
 
       <div className="mt-4 rounded-xl bg-slate-100 p-4">
