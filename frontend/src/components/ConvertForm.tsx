@@ -31,7 +31,7 @@ export function ConvertForm({
       </div>
 
       <form className="mt-5 space-y-4" onSubmit={onSubmit}>
-        <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)_200px] lg:items-end">
+        <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)_200px]">
           <div>
             <label
               htmlFor="tableName"
@@ -39,14 +39,16 @@ export function ConvertForm({
             >
               テーブル名
             </label>
+
             <input
               id="tableName"
               type="text"
               value={tableName}
               onChange={(event) => onTableNameChange(event.target.value)}
               placeholder="users"
-              className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-100"
+              className="mt-2 h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-100"
             />
+
             <p className="mt-2 text-xs leading-5 text-slate-500">例: users</p>
           </div>
 
@@ -57,27 +59,48 @@ export function ConvertForm({
             >
               CSVファイル
             </label>
-            <input
-              id="csvFile"
-              type="file"
-              accept=".csv,text/csv"
-              onChange={onFileChange}
-              className="mt-2 block w-full cursor-pointer rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-700 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:bg-slate-100"
-            />
+
+            <div className="mt-2 flex h-12 items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3">
+              <input
+                id="csvFile"
+                type="file"
+                accept=".csv,text/csv"
+                onChange={onFileChange}
+                className="sr-only"
+              />
+
+              <label
+                htmlFor="csvFile"
+                className="shrink-0 cursor-pointer rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                ファイルを選択
+              </label>
+
+              <span className="min-w-0 truncate text-sm text-slate-700">
+                {selectedFile ? selectedFile.name : "選択されていません"}
+              </span>
+            </div>
+
             <p className="mt-2 text-xs leading-5 text-slate-500">
               {selectedFile
                 ? `選択中: ${selectedFile.name}（${formatBytes(selectedFile.size)}）`
-                : "CSVフォーマットのファイルを選択する。"}
+                : "CSVフォーマットDのファイルを選択する。"}
             </p>
           </div>
 
-          <button
-            type="submit"
-            disabled={isConverting}
-            className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-          >
-            {isConverting ? "変換中..." : "SQLを生成する"}
-          </button>
+          <div className="flex flex-col lg:pt-7">
+            <button
+              type="submit"
+              disabled={isConverting}
+              className="h-12 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
+              {isConverting ? "変換中..." : "SQLを生成する"}
+            </button>
+
+            <p className="mt-2 hidden text-xs leading-5 text-transparent lg:block">
+              spacer
+            </p>
+          </div>
         </div>
 
         {message ? (
