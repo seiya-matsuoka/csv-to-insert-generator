@@ -84,7 +84,7 @@ export function ConvertForm({
             <p className="mt-2 text-xs leading-5 text-slate-500">
               {selectedFile
                 ? `選択中: ${selectedFile.name}（${formatBytes(selectedFile.size)}）`
-                : "CSVフォーマットDのファイルを選択する。"}
+                : "CSVフォーマットのファイルを選択する。"}
             </p>
           </div>
 
