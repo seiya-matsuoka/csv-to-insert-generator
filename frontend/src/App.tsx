@@ -2,6 +2,7 @@ import { type ChangeEvent, type FormEvent, useMemo, useState } from "react";
 import {
   convertCsv,
   getApiBaseUrl,
+  getDownloadUrl,
   type ConvertFailureResponse,
   type ConvertResponse,
   type ConvertSuccessResponse,
@@ -108,15 +109,18 @@ function App() {
         <Header apiBaseUrl={apiBaseUrl} />
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[420px_1fr]">
-          <ConvertForm
-            tableName={tableName}
-            selectedFile={selectedFile}
-            isConverting={isConverting}
-            message={message}
-            onTableNameChange={setTableName}
-            onFileChange={handleFileChange}
-            onSubmit={handleSubmit}
-          />
+          <div className="space-y-6">
+            <CsvDownloadPanel />
+            <ConvertForm
+              tableName={tableName}
+              selectedFile={selectedFile}
+              isConverting={isConverting}
+              message={message}
+              onTableNameChange={setTableName}
+              onFileChange={handleFileChange}
+              onSubmit={handleSubmit}
+            />
+          </div>
 
           <ResultPanel
             successResult={successResult}
@@ -145,6 +149,7 @@ function Header({ apiBaseUrl }: HeaderProps) {
 
       <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600">
         CSVフォーマットDをアップロードし、PostgreSQL向けのINSERT文を生成する。
+        生成結果は画面表示、コピー、.sqlダウンロードに対応する。
       </p>
 
       <div className="mt-6 rounded-xl bg-slate-100 p-4">
@@ -152,6 +157,58 @@ function Header({ apiBaseUrl }: HeaderProps) {
         <p className="mt-1 break-all font-mono text-sm text-slate-700">
           {apiBaseUrl}
         </p>
+      </div>
+    </section>
+  );
+}
+
+function CsvDownloadPanel() {
+  const links = [
+    {
+      label: "テンプレートCSV",
+      description: "入力フォーマットだけを確認するためのCSV。",
+      href: getDownloadUrl("/template.csv"),
+      fileName: "template.csv",
+    },
+    {
+      label: "サンプルCSV①",
+      description: "基本的な値のみを含む小さめのサンプル。",
+      href: getDownloadUrl("/sample1.csv"),
+      fileName: "sample_1.csv",
+    },
+    {
+      label: "サンプルCSV②",
+      description: "NULL / DEFAULT / 空文字を含む確認用サンプル。",
+      href: getDownloadUrl("/sample2.csv"),
+      fileName: "sample_2.csv",
+    },
+  ];
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div>
+        <h2 className="text-xl font-bold text-slate-950">CSVダウンロード</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          テンプレートやサンプルを取得し、変換機能の動作確認に使用する。
+        </p>
+      </div>
+
+      <div className="mt-5 space-y-3">
+        {links.map((link) => (
+          <a
+            key={link.href}
+            href={link.href}
+            download={link.fileName}
+            className="block rounded-xl border border-slate-200 bg-slate-50 p-4 transition hover:border-slate-300 hover:bg-slate-100"
+          >
+            <span className="block text-sm font-bold text-slate-900">
+              {link.label}
+            </span>
+            <span className="mt-1 block text-xs leading-5 text-slate-500">
+              {link.description}
+            </span>
+          </a>
+        ))}
       </div>
     </section>
   );
@@ -181,8 +238,7 @@ function ConvertForm({
       <div>
         <h2 className="text-xl font-bold text-slate-950">変換入力</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          backendの現在仕様に合わせて、テーブル名とCSVファイルを
-          multipart/form-dataで送信する。
+          テーブル名とCSVファイルを指定して、INSERT SQLへ変換する。
         </p>
       </div>
 
@@ -203,8 +259,8 @@ function ConvertForm({
             className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-100"
           />
           <p className="mt-2 text-xs leading-5 text-slate-500">
-            例: users / orders / book_logs。CSV内の #table
-            行もbackend側でこの値に合わせる。
+            例: users / orders /
+            book_logs。backend側ではこの値をtableフィールドとして送信する。
           </p>
         </div>
 
@@ -229,7 +285,7 @@ function ConvertForm({
             </p>
           ) : (
             <p className="mt-2 text-xs leading-5 text-slate-500">
-              CSVフォーマットのファイルを選択する。
+              CSVフォーマットDのファイルを選択する。
             </p>
           )}
         </div>
@@ -264,14 +320,44 @@ type ResultPanelProps = {
 };
 
 function ResultPanel({ successResult, failureResult }: ResultPanelProps) {
+  const [copyMessage, setCopyMessage] = useState<string | null>(null);
+
+  async function handleCopy(sql: string) {
+    try {
+      await navigator.clipboard.writeText(sql);
+      setCopyMessage("コピーしました。");
+    } catch {
+      setCopyMessage(
+        "コピーに失敗しました。手動で選択してコピーしてください。",
+      );
+    }
+  }
+
+  function handleDownload(result: ConvertSuccessResponse) {
+    const blob = new Blob([result.sql], {
+      type: "text/sql;charset=utf-8",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+
+    anchor.href = url;
+    anchor.download = result.outputFileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+
+    URL.revokeObjectURL(url);
+  }
+
   if (successResult) {
     return (
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <h2 className="text-xl font-bold text-slate-950">生成SQL</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              次工程でコピーと.sqlダウンロード機能を追加する。
+              生成されたSQLは、そのままコピーまたは.sqlファイルとして保存できる。
             </p>
           </div>
 
@@ -286,6 +372,28 @@ function ResultPanel({ successResult, failureResult }: ResultPanelProps) {
             {successResult.outputFileName}
           </p>
         </div>
+
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={() => void handleCopy(successResult.sql)}
+            className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800"
+          >
+            SQLをコピー
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleDownload(successResult)}
+            className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-800 shadow-sm transition hover:bg-slate-50"
+          >
+            .sqlをダウンロード
+          </button>
+        </div>
+
+        {copyMessage ? (
+          <p className="mt-3 text-sm text-slate-600">{copyMessage}</p>
+        ) : null}
 
         <textarea
           readOnly
