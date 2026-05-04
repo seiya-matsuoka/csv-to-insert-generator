@@ -1,0 +1,39 @@
+# ビルド成果物
+/target/
+/build/
+
+# Gradle関連
+.gradle/
+.gradlew/
+.gradlew.bat
+
+# Maven関連
+target/
+pom.xml.tag
+pom.xml.md5
+pom.xml.sha1
+.mvn/
+
+# IDE関連
+.idea/
+*.iml
+.project
+.classpath
+.settings/
+.vscode
+.DS_Store
+
+# Git関連
+.git/
+.gitignore
+.gitattributes
+
+# ログ・一時ファイル等
+*.log
+*.tmp
+out
+bin
+
+# Docker関連
+Dockerfile
+.dockerignore
