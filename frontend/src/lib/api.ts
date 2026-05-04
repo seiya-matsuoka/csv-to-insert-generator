@@ -67,13 +67,16 @@ export function getDownloadUrl(path: string): string {
 /**
  * backendのヘルスチェックを実行する。
  *
- * 自動/手動ヘルスチェックで使用する。
+ * Render無料枠ではcold startで初回応答に時間がかかることがあるため、
+ * 呼び出し側からAbortSignalを渡せるようにする。
  *
+ * @param signal 中断用シグナル
  * @returns ok が返れば true
  */
-export async function healthz(): Promise<boolean> {
+export async function healthz(signal?: AbortSignal): Promise<boolean> {
   const response = await fetch(buildApiUrl("/healthz"), {
     method: "GET",
+    signal,
   });
 
   if (!response.ok) {

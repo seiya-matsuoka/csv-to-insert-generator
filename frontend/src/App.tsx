@@ -1,8 +1,16 @@
-import { type ChangeEvent, type FormEvent, useMemo, useState } from "react";
+import {
+  type ChangeEvent,
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   convertCsv,
   getApiBaseUrl,
   getDownloadUrl,
+  healthz,
   type ConvertFailureResponse,
   type ConvertResponse,
   type ConvertSuccessResponse,
@@ -13,6 +21,14 @@ type FormMessage = {
   text: string;
 };
 
+type HealthCheckStatus = "checking" | "ok" | "error";
+
+type HealthCheckState = {
+  status: HealthCheckStatus;
+  message: string;
+  checkedAt: string | null;
+};
+
 function App() {
   const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
@@ -21,9 +37,123 @@ function App() {
   const [result, setResult] = useState<ConvertResponse | null>(null);
   const [message, setMessage] = useState<FormMessage | null>(null);
   const [isConverting, setIsConverting] = useState(false);
+  const [healthCheck, setHealthCheck] = useState<HealthCheckState>({
+    status: "checking",
+    message: "APIサーバーとの接続を確認中です。",
+    checkedAt: null,
+  });
 
   const successResult = result?.ok ? result : null;
   const failureResult = result && !result.ok ? result : null;
+
+  const runHealthCheck = useCallback(async () => {
+    setHealthCheck({
+      status: "checking",
+      message:
+        "APIサーバーとの接続を確認中です。Render無料枠では初回起動に時間がかかる場合があります。",
+      checkedAt: null,
+    });
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      controller.abort();
+    }, 45_000);
+
+    try {
+      const ok = await healthz(controller.signal);
+
+      window.clearTimeout(timeoutId);
+
+      if (ok) {
+        setHealthCheck({
+          status: "ok",
+          message: "APIサーバーに接続できています。",
+          checkedAt: formatDateTime(new Date()),
+        });
+        return;
+      }
+
+      setHealthCheck({
+        status: "error",
+        message:
+          "APIサーバーから想定外の応答が返りました。時間を置いて再確認してください。",
+        checkedAt: formatDateTime(new Date()),
+      });
+    } catch (error) {
+      window.clearTimeout(timeoutId);
+
+      const isAbort =
+        error instanceof DOMException && error.name === "AbortError";
+
+      setHealthCheck({
+        status: "error",
+        message: isAbort
+          ? "APIサーバーの応答がタイムアウトしました。Renderの起動待ちの可能性があります。少し待ってから再確認してください。"
+          : "APIサーバーに接続できませんでした。API URLまたはCORS設定を確認してください。",
+        checkedAt: formatDateTime(new Date()),
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      controller.abort();
+    }, 45_000);
+
+    async function runInitialHealthCheck() {
+      try {
+        const ok = await healthz(controller.signal);
+
+        if (ignore) {
+          return;
+        }
+
+        if (ok) {
+          setHealthCheck({
+            status: "ok",
+            message: "APIサーバーに接続できています。",
+            checkedAt: formatDateTime(new Date()),
+          });
+          return;
+        }
+
+        setHealthCheck({
+          status: "error",
+          message:
+            "APIサーバーから想定外の応答が返りました。時間を置いて再確認してください。",
+          checkedAt: formatDateTime(new Date()),
+        });
+      } catch (error) {
+        if (ignore) {
+          return;
+        }
+
+        const isAbort =
+          error instanceof DOMException && error.name === "AbortError";
+
+        setHealthCheck({
+          status: "error",
+          message: isAbort
+            ? "APIサーバーの応答がタイムアウトしました。Renderの起動待ちの可能性があります。少し待ってから再確認してください。"
+            : "APIサーバーに接続できませんでした。API URLまたはCORS設定を確認してください。",
+          checkedAt: formatDateTime(new Date()),
+        });
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
+    }
+
+    void runInitialHealthCheck();
+
+    return () => {
+      ignore = true;
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, []);
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
@@ -108,6 +238,13 @@ function App() {
       <div className="mx-auto max-w-6xl">
         <Header apiBaseUrl={apiBaseUrl} />
 
+        <div className="mt-6">
+          <HealthCheckPanel
+            healthCheck={healthCheck}
+            onCheck={() => void runHealthCheck()}
+          />
+        </div>
+
         <div className="mt-6 grid gap-6 lg:grid-cols-[420px_1fr]">
           <div className="space-y-6">
             <CsvDownloadPanel />
@@ -157,6 +294,65 @@ function Header({ apiBaseUrl }: HeaderProps) {
         <p className="mt-1 break-all font-mono text-sm text-slate-700">
           {apiBaseUrl}
         </p>
+      </div>
+    </section>
+  );
+}
+
+type HealthCheckPanelProps = {
+  healthCheck: HealthCheckState;
+  onCheck: () => void;
+};
+
+function HealthCheckPanel({ healthCheck, onCheck }: HealthCheckPanelProps) {
+  const badgeClassName =
+    healthCheck.status === "ok"
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+      : healthCheck.status === "error"
+        ? "bg-red-50 text-red-700 ring-red-200"
+        : "bg-amber-50 text-amber-700 ring-amber-200";
+
+  const label =
+    healthCheck.status === "ok"
+      ? "接続OK"
+      : healthCheck.status === "error"
+        ? "接続失敗"
+        : "確認中";
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-lg font-bold text-slate-950">
+              APIヘルスチェック
+            </h2>
+            <span
+              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ring-1 ${badgeClassName}`}
+            >
+              {label}
+            </span>
+          </div>
+
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            {healthCheck.message}
+          </p>
+
+          {healthCheck.checkedAt ? (
+            <p className="mt-1 text-xs text-slate-500">
+              最終確認: {healthCheck.checkedAt}
+            </p>
+          ) : null}
+        </div>
+
+        <button
+          type="button"
+          onClick={onCheck}
+          disabled={healthCheck.status === "checking"}
+          className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+        >
+          {healthCheck.status === "checking" ? "確認中..." : "再チェック"}
+        </button>
       </div>
     </section>
   );
@@ -319,17 +515,26 @@ type ResultPanelProps = {
   failureResult: ConvertFailureResponse | null;
 };
 
+type CopyMessageState = {
+  sql: string;
+  text: string;
+};
+
 function ResultPanel({ successResult, failureResult }: ResultPanelProps) {
-  const [copyMessage, setCopyMessage] = useState<string | null>(null);
+  const [copyMessage, setCopyMessage] = useState<CopyMessageState | null>(null);
 
   async function handleCopy(sql: string) {
     try {
       await navigator.clipboard.writeText(sql);
-      setCopyMessage("コピーしました。");
+      setCopyMessage({
+        sql,
+        text: "コピーしました。",
+      });
     } catch {
-      setCopyMessage(
-        "コピーに失敗しました。手動で選択してコピーしてください。",
-      );
+      setCopyMessage({
+        sql,
+        text: "コピーに失敗しました。手動で選択してコピーしてください。",
+      });
     }
   }
 
@@ -351,6 +556,9 @@ function ResultPanel({ successResult, failureResult }: ResultPanelProps) {
   }
 
   if (successResult) {
+    const visibleCopyMessage =
+      copyMessage?.sql === successResult.sql ? copyMessage.text : null;
+
     return (
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -391,8 +599,8 @@ function ResultPanel({ successResult, failureResult }: ResultPanelProps) {
           </button>
         </div>
 
-        {copyMessage ? (
-          <p className="mt-3 text-sm text-slate-600">{copyMessage}</p>
+        {visibleCopyMessage ? (
+          <p className="mt-3 text-sm text-slate-600">{visibleCopyMessage}</p>
         ) : null}
 
         <textarea
@@ -493,6 +701,13 @@ function formatBytes(size: number): string {
   }
 
   return `${(size / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatDateTime(date: Date): string {
+  return new Intl.DateTimeFormat("ja-JP", {
+    dateStyle: "medium",
+    timeStyle: "medium",
+  }).format(date);
 }
 
 export default App;
