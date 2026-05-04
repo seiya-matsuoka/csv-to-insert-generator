@@ -1,34 +1,18 @@
+import type {
+  ConvertCsvParams,
+  ConvertError,
+  ConvertResponse,
+} from "../types/convert";
+
+export type {
+  ConvertCsvParams,
+  ConvertError,
+  ConvertFailureResponse,
+  ConvertResponse,
+  ConvertSuccessResponse,
+} from "../types/convert";
+
 const DEFAULT_API_BASE_URL = "http://localhost:8080";
-
-export type ConvertError = {
-  fileLineNumber: number;
-  columnName: string;
-  type: string;
-  inputValue: string;
-  reason: string;
-};
-
-export type ConvertSuccessResponse = {
-  ok: true;
-  generatedAt: string;
-  outputFileName: string;
-  sql: string;
-};
-
-export type ConvertFailureResponse = {
-  ok: false;
-  generatedAt: string;
-  errors: ConvertError[];
-  truncated: boolean;
-  maxErrors: number;
-};
-
-export type ConvertResponse = ConvertSuccessResponse | ConvertFailureResponse;
-
-export type ConvertCsvParams = {
-  table: string;
-  file: File;
-};
 
 /**
  * APIのベースURLを返す。
@@ -149,12 +133,27 @@ function isConvertResponse(value: unknown): value is ConvertResponse {
     return (
       typeof value.generatedAt === "string" &&
       Array.isArray(value.errors) &&
+      value.errors.every(isConvertError) &&
       typeof value.truncated === "boolean" &&
       typeof value.maxErrors === "number"
     );
   }
 
   return false;
+}
+
+function isConvertError(value: unknown): value is ConvertError {
+  if (!isObject(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.fileLineNumber === "number" &&
+    typeof value.columnName === "string" &&
+    typeof value.type === "string" &&
+    typeof value.inputValue === "string" &&
+    typeof value.reason === "string"
+  );
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
